@@ -45,7 +45,7 @@ namespace OpenBabel
     // NOTREADABLE  READONEONLY  NOTWRITABLE  WRITEONEONLY
     virtual unsigned int Flags()
     {
-      return READONEONLY | NOTWRITABLE;
+      return NOTWRITABLE;
     };
 
     ////////////////////////////////////////////////////
@@ -196,6 +196,11 @@ namespace OpenBabel
              tokenize(vs,buffer);
            }
          } // if "Projected Infra Red Intensities"
+       if(strstr(buffer,"Geometry") != NULL && strstr(buffer,"->") != NULL)
+         {
+           if(mol.NumAtoms() > 0)
+             break;
+         } // if "Geometry" && "->"
       } // while
 
     if (mol.NumAtoms() == 0) { // e.g., if we're at the end of a file PR#1737209
