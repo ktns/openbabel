@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #include <openbabel/obconversion.h>
 #include <openbabel/descriptor.h>
 #include <openbabel/inchiformat.h>
+#include <ciso646>  // detect std::lib
 #if defined(_MSC_VER) || defined(_LIBCPP_VERSION)
   #include <unordered_map>
 #elif (__GNUC__ == 4 && __GNUC_MINOR__ >= 1 && !defined(__APPLE_CC__))

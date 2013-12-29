@@ -22,6 +22,7 @@ GNU General Public License for more details.
 #else
   #include <memory>
   #if __GNUC__ == 4  //&& __GNUC_MINOR__ < 3  removed at the suggestion of Konstantin Tokarev
+    #include <ciso646>  // detect std::lib
     #ifdef _LIBCPP_VERSION
       #include <memory>
     #else
