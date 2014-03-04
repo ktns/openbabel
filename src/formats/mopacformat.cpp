@@ -756,7 +756,8 @@ namespace OpenBabel
       return "MOPAC Internal\n"
         "Write Options e.g. -xk\n"
         "  k  \"keywords\" Use the specified keywords for input\n"
-        "  f    <file>     Read the file specified for input keywords\n\n";
+        "  f    <file>     Read the file specified for input keywords\n"
+        "  u               Write the crystallographic unit cell, if present.\n\n";
     };
 
     virtual const char* GetMIMEType()
@@ -886,6 +887,7 @@ namespace OpenBabel
 
     const char *keywords = pConv->IsOption("k",OBConversion::OUTOPTIONS);
     const char *keywordFile = pConv->IsOption("f",OBConversion::OUTOPTIONS);
+    bool writeUnitCell = (NULL != pConv->IsOption("u", OBConversion::OUTOPTIONS));
     string defaultKeywords = "PUT KEYWORDS HERE";
 
     if(keywords)
@@ -934,6 +936,42 @@ namespace OpenBabel
       if (atom->GetIdx() >= 4)
         snprintf(buffer, BUFF_SIZE, "%4d%4d%4d\n", a->GetIdx(), b->GetIdx(), c->GetIdx());
       ofs << buffer;
+    }
+    OBUnitCell *uc = (OBUnitCell*)mol.GetData(OBGenericDataType::UnitCell);
+    if (uc && writeUnitCell) {
+      OBAtom *a = NULL, *b = NULL, *c = NULL;
+      if(mol.NumAtoms()>=1)
+        a = mol.GetAtom(1);
+      if(mol.NumAtoms()>=2)
+        b = mol.GetAtom(2);
+      if(mol.NumAtoms()>=3)
+        c = mol.GetAtom(3);
+
+      vector<vector3> cellVectors = uc->GetCellVectors();
+      for (vector<vector3>::iterator i = cellVectors.begin(); i != cellVectors.end(); ++i) {
+        OBAtom dummy;
+        vector3 v;
+        double r = 0, w = 0, t = 0;
+        r = i->length();
+        v = a->GetVector() + (*i);
+        dummy.SetVector(v);
+        if(a != NULL && b != NULL) {
+          w = dummy.GetAngle(a,b);
+        }
+        if(a != NULL && b != NULL && c != NULL){
+          t = mol.GetTorsion(&dummy, a,b,c);
+        }
+        if(t < 0)
+          t += 360;
+
+        snprintf(buffer, BUFF_SIZE, "Tv %10.6f  1  %10.6f  1  %10.6f  1  ", r, w, t);
+        ofs << buffer;
+        snprintf(buffer, BUFF_SIZE, "%4d%4d%4d\n",
+            a == NULL ? 0 : a->GetIdx(),
+            b == NULL ? 0 : b->GetIdx(),
+            c == NULL ? 0 : c->GetIdx());
+        ofs << buffer;
+      }
     }
 
     return(true);
