@@ -50,6 +50,14 @@ namespace OpenBabel
     /// The "API" interface functions
     virtual bool ReadMolecule(OBBase* pOb, OBConversion* pConv);
     //	virtual bool WriteMolecule(OBBase* pOb, OBConversion* pConv); Is Read Only
+  private:
+    inline static bool IsOptimizationFlag(string& s){
+      return s == "*" || s == "+";
+    }
+
+    inline static void EliminateOptimizationFlags(vector<string>& vs){
+			vs.erase(remove_if(vs.begin(), vs.end(), IsOptimizationFlag), vs.end());
+    }
   };
 
   //Make an instance of the format class
@@ -123,21 +131,23 @@ namespace OpenBabel
             ifs.getline(buffer,BUFF_SIZE);	// blank
             ifs.getline(buffer,BUFF_SIZE);
             tokenize(vs,buffer);
-            while (vs.size() == 8)
+            EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
+            while (vs.size() == 5)
               {
                 if (strcmp(vs[1].c_str(), "Tv") != 0)
                   {
                     atom = mol.NewAtom();
                     atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
                     x = atof((char*)vs[2].c_str());
-                    y = atof((char*)vs[4].c_str());
-                    z = atof((char*)vs[6].c_str());
+                    y = atof((char*)vs[3].c_str());
+                    z = atof((char*)vs[4].c_str());
                     atom->SetVector(x,y,z);
                   }
 
                 if (!ifs.getline(buffer,BUFF_SIZE))
                   break;
                 tokenize(vs,buffer);
+                EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
               }
           }
         else if(strstr(buffer,"UNIT CELL TRANSLATION") != NULL)
