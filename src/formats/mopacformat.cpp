@@ -128,26 +128,84 @@ namespace OpenBabel
           { // newer versions don't print CARTESIAN for final geometry
             mol.Clear();
             mol.BeginModify();
-            ifs.getline(buffer,BUFF_SIZE);	// blank
-            ifs.getline(buffer,BUFF_SIZE);
-            tokenize(vs,buffer);
-            EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
-            while (vs.size() == 5)
-              {
-                if (strcmp(vs[1].c_str(), "Tv") != 0)
-                  {
-                    atom = mol.NewAtom();
-                    atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
-                    x = atof((char*)vs[2].c_str());
-                    y = atof((char*)vs[3].c_str());
-                    z = atof((char*)vs[4].c_str());
-                    atom->SetVector(x,y,z);
-                  }
-
-                if (!ifs.getline(buffer,BUFF_SIZE))
-                  break;
+            const char * substr = strstr(buffer, "(ANGSTROMS)") + 1;
+            if(strstr(substr, "(ANGSTROMS)") != NULL) // Check if multiple "(ANGSTROMS)" is contained in the line
+              { // Cartesian coordinates
+                ifs.getline(buffer,BUFF_SIZE);	// blank
+                ifs.getline(buffer,BUFF_SIZE);
                 tokenize(vs,buffer);
                 EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
+                while (vs.size() == 5)
+                  {
+                    if (strcmp(vs[1].c_str(), "Tv") != 0)
+                      {
+                        atom = mol.NewAtom();
+                        atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
+                        x = atof((char*)vs[2].c_str());
+                        y = atof((char*)vs[3].c_str());
+                        z = atof((char*)vs[4].c_str());
+                        atom->SetVector(x,y,z);
+                      }
+
+                    if (!ifs.getline(buffer,BUFF_SIZE))
+                      break;
+                    tokenize(vs,buffer);
+                    EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
+                  }
+              }
+            else
+              { // Internal coordinates
+                vector<OBInternalCoord*> vic;
+                vector<unsigned int> indices;
+                ifs.getline(buffer,BUFF_SIZE);	// header
+                ifs.getline(buffer,BUFF_SIZE);
+                tokenize(vs,buffer);
+                EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
+                while (vs.size() == 8)
+                  {
+                    if (strcmp(vs[1].c_str(), "Tv") != 0)
+                      {
+                        atom = mol.NewAtom();
+                        OBInternalCoord *coord =  new OBInternalCoord;
+                        atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
+                        coord->_dst = atof((char*)vs[2].c_str());
+                        coord->_ang = atof((char*)vs[3].c_str());
+                        coord->_tor = atof((char*)vs[4].c_str());
+                        vic.push_back(coord);
+
+                        indices.push_back(atoi(vs[5].c_str()));
+                        indices.push_back(atoi(vs[6].c_str()));
+                        indices.push_back(atoi(vs[7].c_str()));
+                      }
+
+                    if (!ifs.getline(buffer,BUFF_SIZE))
+                      break;
+                    tokenize(vs,buffer);
+                    EliminateOptimizationFlags(vs);
+                  }
+
+                unsigned int idx = 0;
+                FOR_ATOMS_OF_MOL (a, mol)
+                  {
+                    if ((indices[idx] > 0) && (indices[idx] <= mol.NumAtoms()))
+                      vic[a->GetIdx()-1]->_a = mol.GetAtom(indices[idx]);
+                    else
+                      vic[a->GetIdx()]->_a = NULL;
+
+                    if ((indices[idx+1] > 0) && (indices[idx+1] <= mol.NumAtoms()))
+                      vic[a->GetIdx()-1]->_b = mol.GetAtom(indices[idx+1]);
+                    else
+                      vic[a->GetIdx()-1]->_b = NULL;
+
+                    if ((indices[idx+2] > 0) && (indices[idx+2] <= mol.NumAtoms()))
+                      vic[a->GetIdx()-1]->_c = mol.GetAtom(indices[idx+2]);
+                    else
+                      vic[a->GetIdx()-1]->_c = NULL;
+
+                    idx += 3;
+                  }
+
+                InternalToCartesian(vic,mol);
               }
           }
         else if(strstr(buffer,"UNIT CELL TRANSLATION") != NULL)
