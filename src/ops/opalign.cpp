@@ -223,6 +223,15 @@ bool OpAlign::Do(OBBase* pOb, const char* OptionText, OpMap* pmap, OBConversion*
     if(!_align.Align())
       return false;
 
+    matrix3x3 rotmatrix = _align.GetRotMatrix();
+
+    // If the molecule has a unit cell, rotate it
+    OBUnitCell* uc = dynamic_cast<OBUnitCell*>(pmol->GetData(OBGenericDataType::UnitCell));
+    if(uc){
+      matrix3x3 cell = uc->GetCellMatrix();
+      uc->SetData(cell*rotmatrix.transpose());
+    }
+
     // Get the centroid of the reference atoms
     vector3 ref_centroid;
     for(vector<vector3>::iterator iter=_refvec.begin(); iter!=_refvec.end(); ++iter)
@@ -230,7 +239,6 @@ bool OpAlign::Do(OBBase* pOb, const char* OptionText, OpMap* pmap, OBConversion*
     ref_centroid /= _refvec.size();
 
     //subtract the centroid, rotate the target molecule, then add the centroid
-    matrix3x3 rotmatrix = _align.GetRotMatrix();
     for (unsigned int i = 1; i <= pmol->NumAtoms(); ++i)
     {
       vector3 tmpvec = pmol->GetAtom(i)->GetVector();
@@ -245,6 +253,15 @@ bool OpAlign::Do(OBBase* pOb, const char* OptionText, OpMap* pmap, OBConversion*
     _align.SetTargetMol(*pmol);
     if(!_align.Align())
       return false;
+
+    // If the molecule has a unit cell, rotate it
+    OBUnitCell* uc = dynamic_cast<OBUnitCell*>(pmol->GetData(OBGenericDataType::UnitCell));
+    if(uc){
+      matrix3x3 rotmatrix = _align.GetRotMatrix();
+      matrix3x3 cell = uc->GetCellMatrix();
+      uc->SetData(cell*rotmatrix.transpose());
+    }
+
     _align.UpdateCoords(pmol);
   }
 
