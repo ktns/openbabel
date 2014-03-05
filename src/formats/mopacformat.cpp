@@ -157,26 +157,33 @@ namespace OpenBabel
               { // Internal coordinates
                 vector<OBInternalCoord*> vic;
                 vector<unsigned int> indices;
+                numTranslationVectors=0;
                 ifs.getline(buffer,BUFF_SIZE);	// header
                 ifs.getline(buffer,BUFF_SIZE);
                 tokenize(vs,buffer);
                 EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
                 while (vs.size() == 8)
                   {
-                    if (strcmp(vs[1].c_str(), "Tv") != 0)
+                    atom = mol.NewAtom();
+                    OBInternalCoord *coord =  new OBInternalCoord;
+                    if (strcmp(vs[1].c_str(), "Tv") == 0)
                       {
-                        atom = mol.NewAtom();
-                        OBInternalCoord *coord =  new OBInternalCoord;
-                        atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
-                        coord->_dst = atof((char*)vs[2].c_str());
-                        coord->_ang = atof((char*)vs[3].c_str());
-                        coord->_tor = atof((char*)vs[4].c_str());
-                        vic.push_back(coord);
-
-                        indices.push_back(atoi(vs[5].c_str()));
-                        indices.push_back(atoi(vs[6].c_str()));
-                        indices.push_back(atoi(vs[7].c_str()));
+                        numTranslationVectors++;
+                        atom->SetAtomicNum(1);
                       }
+                    else
+                      {
+                        atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
+                      }
+
+                    coord->_dst = atof((char*)vs[2].c_str());
+                    coord->_ang = atof((char*)vs[3].c_str());
+                    coord->_tor = atof((char*)vs[4].c_str());
+                    vic.push_back(coord);
+
+                    indices.push_back(atoi(vs[5].c_str()));
+                    indices.push_back(atoi(vs[6].c_str()));
+                    indices.push_back(atoi(vs[7].c_str()));
 
                     if (!ifs.getline(buffer,BUFF_SIZE))
                       break;
@@ -206,6 +213,20 @@ namespace OpenBabel
                   }
 
                 InternalToCartesian(vic,mol);
+
+                for(int i = numTranslationVectors ; i > 0; i--)
+                  {
+                    OBAtom* tv = mol.GetAtom(mol.NumAtoms());
+                    translationVectors[i-1] = tv->GetVector();
+                    mol.DeleteAtom(tv);
+                  }
+                if(numTranslationVectors == 3)
+                  {
+                    OBUnitCell* uc = new OBUnitCell;
+                    uc->SetData(translationVectors[0], translationVectors[1], translationVectors[2]);
+                    uc->SetOrigin(fileformatInput);
+                    mol.SetData(uc);
+                  }
               }
           }
         else if(strstr(buffer,"UNIT CELL TRANSLATION") != NULL)
