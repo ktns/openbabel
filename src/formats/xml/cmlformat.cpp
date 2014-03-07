@@ -1302,7 +1302,7 @@ namespace OpenBabel
     static const xmlChar C_ATOM[]       = "atom";
     static const xmlChar C_BOND[]       = "bond";
     static const xmlChar C_ID[]         = "id";
-    // static const xmlChar C_TITLE[]      = "title";
+    static const xmlChar C_TITLE[]      = "title";
     static const xmlChar C_NAME[]       = "name";
     static const xmlChar C_ATOMPARITY[] = "atomParity";
     static const xmlChar C_BONDSTEREO[] = "bondStereo";
@@ -1429,6 +1429,9 @@ namespace OpenBabel
     const char* id = mol.GetTitle();
     if(*id)
       {
+        // Add title attribute onto molecule element
+        xmlTextWriterWriteAttribute(writer(), C_TITLE, BAD_CAST id);
+
         string name(id);
         //If name is a filename with a path, remove path and extension
         string::size_type pos;
