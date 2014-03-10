@@ -135,16 +135,22 @@ namespace OpenBabel
                 ifs.getline(buffer,BUFF_SIZE);
                 tokenize(vs,buffer);
                 EliminateOptimizationFlags(vs); // Eliminate optimization flags from the line
+                numTranslationVectors = 0;
                 while (vs.size() == 5)
                   {
+                    x = atof((char*)vs[2].c_str());
+                    y = atof((char*)vs[3].c_str());
+                    z = atof((char*)vs[4].c_str());
+
                     if (strcmp(vs[1].c_str(), "Tv") != 0)
                       {
                         atom = mol.NewAtom();
                         atom->SetAtomicNum(etab.GetAtomicNum(vs[1].c_str()));
-                        x = atof((char*)vs[2].c_str());
-                        y = atof((char*)vs[3].c_str());
-                        z = atof((char*)vs[4].c_str());
                         atom->SetVector(x,y,z);
+                      }
+                    else
+                      {
+                        translationVectors[numTranslationVectors++].Set(x, y, z);
                       }
 
                     if (!ifs.getline(buffer,BUFF_SIZE))
