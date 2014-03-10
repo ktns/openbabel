@@ -52,7 +52,7 @@ namespace OpenBabel
     //	virtual bool WriteMolecule(OBBase* pOb, OBConversion* pConv); Is Read Only
   private:
     inline static bool IsOptimizationFlag(string& s){
-      return s == "*" || s == "+";
+      return s == "*" || s == "+" || s == "+1";
     }
 
     inline static void EliminateOptimizationFlags(vector<string>& vs){
