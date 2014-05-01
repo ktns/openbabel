@@ -74,7 +74,10 @@ namespace OpenBabel
     OBAtom *atom;
     vector<string> vs;
     vector<double> charges;
+    vector<int> coreCharges;
     bool hasPartialCharges = false;
+    vector<vector<int> > localizedOrbitals;
+    bool hasLocalizedOrbitals = false;
     double energy;
     OBVectorData *dipoleMoment = NULL;
     bool readingVibrations = false;
@@ -235,6 +238,7 @@ namespace OpenBabel
           {
             hasPartialCharges = true;
             charges.clear();
+            coreCharges.clear();
             ifs.getline(buffer,BUFF_SIZE);	// blank
             ifs.getline(buffer,BUFF_SIZE);	// column headings
             ifs.getline(buffer,BUFF_SIZE);
@@ -246,7 +250,10 @@ namespace OpenBabel
                 atom = mol.GetAtom(atoi(vs[0].c_str()));
                 if (atom != NULL)
                   atom->SetPartialCharge(atof(vs[2].c_str()));
-                charges.push_back(atof(vs[2].c_str()));
+                double charge = atof(vs[2].c_str());
+                double nelecs = atof(vs[3].c_str());
+                charges.push_back(charge);
+                coreCharges.push_back(round(charge+nelecs));
 
                 if (!ifs.getline(buffer,BUFF_SIZE))
                   break;
@@ -277,6 +284,42 @@ namespace OpenBabel
 
             if (!ifs.getline(buffer,BUFF_SIZE))
               break;
+          }
+        // Localized orbitals (Natural Bond Orbitals)
+        else if(strstr(buffer,"LOCALISATION VALUE") != NULL)
+          {
+            hasLocalizedOrbitals = true;
+            localizedOrbitals.clear();
+            ifs.getline(buffer,BUFF_SIZE); // blank
+            ifs.getline(buffer,BUFF_SIZE); // header
+            ifs.getline(buffer,BUFF_SIZE); // blank
+            ifs.getline(buffer,BUFF_SIZE); // blank
+            ifs.getline(buffer,BUFF_SIZE); // data
+            // insert a space if an atomic composition of an orbital is exatly 100%
+            char *buffer2 = strstr(buffer,"100.00");
+            if(buffer2 != NULL)
+              *buffer2 = ' ';
+            tokenize(vs,buffer);
+            while(vs.size() >= 1)
+              {
+                vector<int> v;
+                int n = round(atof(vs[0].c_str()));
+                vector<string>::const_iterator it = vs.begin()+2;
+                for(int i = 0; i < n; i++,it+=3)
+                  {
+                    if(it >= vs.end())
+                      break;
+                    v.push_back(atoi(it->c_str()));
+                  }
+                localizedOrbitals.push_back(v);
+
+                ifs.getline(buffer,BUFF_SIZE);
+                // insert a space if a composition of an orbital is exatly 100%
+                char *buffer2 = strstr(buffer,"100.00");
+                if(buffer2 != NULL)
+                  *buffer2 = ' ';
+                tokenize(vs,buffer);
+              }
           }
         else if(strstr(buffer,"MASS-WEIGHTED COORDINATE ANALYSIS") != NULL)
           { // the correct vibrations -- earlier bits aren't mass-weighted
@@ -357,11 +400,58 @@ namespace OpenBabel
       return false;
     }
 
-    if (!pConv->IsOption("b",OBConversion::INOPTIONS))
-      mol.ConnectTheDots();
-    if (!pConv->IsOption("s",OBConversion::INOPTIONS)
-        && !pConv->IsOption("b",OBConversion::INOPTIONS))
-      mol.PerceiveBondOrders();
+    if(hasLocalizedOrbitals && hasPartialCharges)
+      {
+        vector<int>::const_iterator coreChargeIter = coreCharges.begin();
+        FOR_ATOMS_OF_MOL(a,mol)
+          {
+            const int& coreCharge = *coreChargeIter;
+            a->SetFormalCharge(coreCharge);
+            coreChargeIter++;
+          }
+        vector<vector<int> >::const_iterator it;
+        for(it = localizedOrbitals.begin(); it < localizedOrbitals.end(); it++)
+          {
+            const vector<int>& v = *it;
+            if(v.size() == 1)
+              {
+                OBAtom *a = mol.GetAtom(v[0]);
+                a->SetFormalCharge(a->GetFormalCharge() - 2);
+              }
+            else if(v.size() >= 2)
+            {
+              OBAtom *a1 = mol.GetAtom(v[0]);
+              a1->SetFormalCharge(a1->GetFormalCharge() - 1);
+              OBAtom *a2 = mol.GetAtom(v[1]);
+              a2->SetFormalCharge(a2->GetFormalCharge() - 1);
+
+              OBBond *b = mol.GetBond(v[0],v[1]);
+              if(b == NULL)
+                {
+                  mol.AddBond(v[0],v[1],1);
+                }
+              else
+                {
+                  b->SetBondOrder(b->GetBondOrder()+1);
+                }
+            }
+            if(v.size() >= 3)
+              {
+                for(vector<int>::const_iterator i = v.begin(); i < v.end(); i++){
+                  OBAtom *a = mol.GetAtom(*i);
+                  a->SetAromatic();
+                }
+              }
+          }
+      }
+    else
+      {
+        if (!pConv->IsOption("b",OBConversion::INOPTIONS))
+          mol.ConnectTheDots();
+        if (!pConv->IsOption("s",OBConversion::INOPTIONS)
+            && !pConv->IsOption("b",OBConversion::INOPTIONS))
+          mol.PerceiveBondOrders();
+      }
 
     mol.EndModify();
 
